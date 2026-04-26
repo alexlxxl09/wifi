@@ -1,3 +1,19 @@
+import { readFileSync } from "fs";
+import { resolve } from "path";
+import { fileURLToPath } from "url";
+
+// Charger .env si présent
+try {
+  const envPath = resolve(
+    fileURLToPath(new URL(".", import.meta.url)),
+    "../.env"
+  );
+  for (const line of readFileSync(envPath, "utf8").split("\n")) {
+    const match = line.match(/^([A-Z_]+)=(.+)$/);
+    if (match) process.env[match[1]] = match[2].trim();
+  }
+} catch { /* .env absent, pas grave */ }
+
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";

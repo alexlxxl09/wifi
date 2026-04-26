@@ -61,7 +61,7 @@ export default function CardItem({ card, onFetchPSA }: CardItemProps) {
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-400">Pop PSA 10</span>
+                  <span className="text-xs text-gray-400">Ventes PSA 10</span>
                   <span className="text-sm font-bold text-white">
                     {psaData.pop !== null ? psaData.pop.toLocaleString() : "N/A"}
                   </span>

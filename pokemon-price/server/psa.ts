@@ -1,146 +1,98 @@
 import type { Request, Response } from "express";
-import * as cheerio from "cheerio";
 
-const BROWSER_HEADERS: Record<string, string> = {
-  "User-Agent":
-    "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.119 Mobile Safari/537.36",
-  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-  "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
-  Connection: "keep-alive",
-  "Upgrade-Insecure-Requests": "1",
-  "Sec-Fetch-Dest": "document",
-  "Sec-Fetch-Mode": "navigate",
-  "Sec-Fetch-Site": "none",
-  "Sec-Fetch-User": "?1",
-  "Cache-Control": "max-age=0",
-};
+const EBAY_APP_ID = process.env.EBAY_APP_ID ?? "";
 
-async function fetchHtml(url: string, label: string): Promise<string> {
-  const res = await fetch(url, {
-    headers: BROWSER_HEADERS,
-    signal: AbortSignal.timeout(12000),
+interface EbayItem {
+  title: string[];
+  sellingStatus: { currentPrice: { __value__: string }[] }[];
+  listingInfo: { endTime: string[] }[];
+}
+
+interface EbayResponse {
+  findCompletedItemsResponse?: {
+    searchResult?: { item?: EbayItem[] }[];
+    paginationOutput?: { totalEntries: string[] }[];
+    ack?: string[];
+    errorMessage?: { error: { message: string[] }[] }[];
+  }[];
+}
+
+async function searchEbay(keywords: string, entriesPerPage = 10): Promise<EbayResponse> {
+  const params = new URLSearchParams({
+    "OPERATION-NAME": "findCompletedItems",
+    "SERVICE-VERSION": "1.0.0",
+    "SECURITY-APPNAME": EBAY_APP_ID,
+    "RESPONSE-DATA-FORMAT": "JSON",
+    keywords,
+    "categoryId": "2536",
+    "itemFilter(0).name": "SoldItemsOnly",
+    "itemFilter(0).value": "true",
+    "sortOrder": "EndTimeSoonest",
+    "paginationInput.entriesPerPage": String(entriesPerPage),
   });
-  console.log(`[${label}] HTTP ${res.status} — ${url}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.text();
-}
 
-async function fetch130PointPrice(
-  cardName: string,
-  setName: string
-): Promise<{ price: number | null; lastSaleDate?: string; error?: string }> {
-  try {
-    const query = encodeURIComponent(`${cardName} ${setName}`);
-    const html = await fetchHtml(
-      `https://www.130point.com/sales/?search=${query}&grade=10`,
-      "130point"
-    );
-    const $ = cheerio.load(html);
+  const res = await fetch(
+    `https://svcs.ebay.com/services/search/FindingService/v1?${params}`,
+    { signal: AbortSignal.timeout(10000) }
+  );
 
-    const prices: { price: number; date?: string }[] = [];
-
-    // Essai 1 : tableau de ventes
-    $("table tbody tr, table tr").each((_, row) => {
-      const cells = $(row).find("td");
-      if (cells.length < 2) return;
-      cells.each((_, cell) => {
-        const match = $(cell).text().match(/\$([\d,]+\.?\d{0,2})/);
-        if (!match) return;
-        const val = parseFloat(match[1].replace(",", ""));
-        if (val > 1 && val < 500000) prices.push({ price: val });
-      });
-    });
-
-    // Essai 2 : n'importe quel montant en dollars dans la page
-    if (prices.length === 0) {
-      const bodyText = $("body").text();
-      for (const m of bodyText.matchAll(/\$([\d,]+\.?\d{0,2})/g)) {
-        const val = parseFloat(m[1].replace(",", ""));
-        if (val > 1 && val < 500000) prices.push({ price: val });
-      }
-    }
-
-    console.log(`[130point] Found ${prices.length} prices`);
-    if (prices.length === 0) return { price: null, error: "Aucune vente trouvée sur 130point" };
-    return { price: prices[0].price };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error("[130point] Error:", msg);
-    return { price: null, error: `130point: ${msg}` };
-  }
-}
-
-async function fetchPSAPop(
-  cardName: string,
-  setName: string,
-  cardNumber: string
-): Promise<{ pop: number | null; error?: string }> {
-  try {
-    const query = encodeURIComponent(`${cardName} ${setName}`);
-    const html = await fetchHtml(
-      `https://www.psacard.com/pop/trading-card-games/year/pokemon/search?q=${query}`,
-      "PSA"
-    );
-    const $ = cheerio.load(html);
-
-    let pop10: number | null = null;
-
-    $("table tr").each((_, row) => {
-      if (pop10 !== null) return false;
-      const rowText = $(row).text();
-      if (!/GEM\s*MT\s*10|PSA\s*10|\b10\b/i.test(rowText)) return;
-      $(row).find("td").each((i, cell) => {
-        if (i === 0) return;
-        const val = parseInt($(cell).text().replace(/[^0-9]/g, ""), 10);
-        if (!isNaN(val) && val >= 0) { pop10 = val; return false; }
-      });
-    });
-
-    // Essai 2 : chercher dans tout le texte de la page
-    if (pop10 === null) {
-      const bodyText = $("body").text();
-      const m = bodyText.match(/GEM[^0-9]*(\d+)/i);
-      if (m) pop10 = parseInt(m[1], 10);
-    }
-
-    console.log(`[PSA] pop10 = ${pop10}`);
-    if (pop10 === null) return { pop: null, error: "Pop PSA 10 introuvable" };
-    return { pop: pop10 };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error("[PSA] Error:", msg);
-    return { pop: null, error: `PSA: ${msg}` };
-  }
+  if (!res.ok) throw new Error(`eBay API HTTP ${res.status}`);
+  return res.json() as Promise<EbayResponse>;
 }
 
 export async function psaHandler(req: Request, res: Response) {
   const name = (req.query.name as string) ?? "";
   const setName = (req.query.set as string) ?? "";
-  const number = (req.query.number as string) ?? "";
 
   if (!name) return res.status(400).json({ error: "Missing card name" });
 
-  const [priceResult, popResult] = await Promise.all([
-    fetch130PointPrice(name, setName),
-    fetchPSAPop(name, setName, number),
-  ]);
+  if (!EBAY_APP_ID) {
+    return res.json({
+      price: null, pop: null, ratio: null,
+      source: "eBay",
+      error: "EBAY_APP_ID manquant — crée .env avec ta clé gratuite (developer.ebay.com)",
+    });
+  }
 
-  const price = priceResult.price;
-  const pop = popResult.pop;
+  try {
+    const keywords = `${name} ${setName} PSA 10`.trim();
+    const data = await searchEbay(keywords, 10);
+    const response = data.findCompletedItemsResponse?.[0];
 
-  const ratio =
-    pop !== null && price !== null && price > 0
-      ? Math.round((pop / price) * 100) / 100
+    if (response?.ack?.[0] !== "Success") {
+      const errMsg = response?.errorMessage?.[0]?.error?.[0]?.message?.[0] ?? "Erreur eBay inconnue";
+      return res.json({ price: null, pop: null, ratio: null, source: "eBay", error: errMsg });
+    }
+
+    const items = response?.searchResult?.[0]?.item ?? [];
+    const totalEntries = parseInt(response?.paginationOutput?.[0]?.totalEntries?.[0] ?? "0", 10);
+
+    // Prix moyen des 5 dernières ventes
+    const prices = items
+      .map((item) => parseFloat(item.sellingStatus?.[0]?.currentPrice?.[0]?.__value__ ?? "0"))
+      .filter((p) => p > 0)
+      .slice(0, 5);
+
+    const price = prices.length > 0
+      ? Math.round((prices.reduce((a, b) => a + b, 0) / prices.length) * 100) / 100
       : null;
 
-  const errors = [priceResult.error, popResult.error].filter(Boolean);
+    // "Pop marché" = nombre total de ventes PSA 10 trouvées (proxy de l'offre)
+    const pop = totalEntries > 0 ? totalEntries : null;
 
-  res.json({
-    price,
-    pop,
-    ratio,
-    source: "130point + PSA",
-    lastSaleDate: priceResult.lastSaleDate,
-    error: errors.length ? errors.join(" | ") : undefined,
-  });
+    const lastSaleDate = items[0]?.listingInfo?.[0]?.endTime?.[0]?.slice(0, 10);
+
+    const ratio =
+      pop !== null && price !== null && price > 0
+        ? Math.round((pop / price) * 100) / 100
+        : null;
+
+    console.log(`[eBay] "${keywords}": price=$${price}, pop=${pop}, ${prices.length} sales`);
+
+    res.json({ price, pop, ratio, source: "eBay (ventes PSA 10)", lastSaleDate });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[eBay] Error:", msg);
+    res.json({ price: null, pop: null, ratio: null, source: "eBay", error: msg });
+  }
 }
