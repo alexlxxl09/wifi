@@ -33,7 +33,22 @@ export default function App() {
   async function fetchPSAForCard(card: CardWithPSA) {
     setCards((prev) => prev.map((c) => (c.id === card.id ? { ...c, loading: true } : c)));
     try {
-      const params = new URLSearchParams({ name: card.name, set: card.set.name, number: card.number });
+      // Extraire le prix raw depuis les données TCGPlayer/Cardmarket
+      const p = card.tcgplayer?.prices;
+      const rawPrice =
+        p?.holofoil?.market ??
+        p?.["1stEditionHolofoil"]?.market ??
+        p?.normal?.market ??
+        p?.reverseHolofoil?.market ??
+        card.cardmarket?.prices?.averageSellPrice ??
+        null;
+
+      const params = new URLSearchParams({
+        name: card.name,
+        set: card.set.name,
+        number: card.number,
+        ...(rawPrice !== null ? { rawPrice: String(rawPrice) } : {}),
+      });
       const res = await fetch(`/api/psa?${params}`);
       const data: PSAData = await res.json();
       setCards((prev) => prev.map((c) => (c.id === card.id ? { ...c, loading: false, psaData: data } : c)));
@@ -41,7 +56,7 @@ export default function App() {
       setCards((prev) =>
         prev.map((c) =>
           c.id === card.id
-            ? { ...c, loading: false, psaData: { price: null, pop: null, ratio: null, source: "Error", error: "Erreur réseau" } }
+            ? { ...c, loading: false, psaData: { price: null, pop: null, gemMintPct: null, rawPrice: null, ratio: null, source: "Error", error: "Erreur réseau" } }
             : c
         )
       );
@@ -110,10 +125,11 @@ export default function App() {
         <div className="max-w-6xl mx-auto mb-4 flex gap-4 flex-wrap text-xs text-gray-500">
           <span>Ratio pop/prix :</span>
           <span className="text-emerald-400">GEM &lt; 0.5</span>
-          <span className="text-blue-400">RARE &lt; 2</span>
-          <span className="text-yellow-400">BON &lt; 10</span>
-          <span className="text-gray-400">COMMUN ≥ 10</span>
-          <span className="text-gray-600">· Plus bas = carte plus rare comparée à son prix</span>
+          <span className="text-emerald-400">TOP &lt; 5</span>
+          <span className="text-blue-400">BON &lt; 15</span>
+          <span className="text-yellow-400">MOY &lt; 40</span>
+          <span className="text-gray-400">FAIBLE ≥ 40</span>
+          <span className="text-gray-600">· Score = raw/PSA10 × gem% — plus bas = meilleure opportunité</span>
         </div>
       )}
 

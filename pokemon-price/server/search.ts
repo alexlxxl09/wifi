@@ -8,15 +8,13 @@ export async function searchHandler(req: Request, res: Response) {
     `https://api.pokemontcg.io/v2/cards` +
     `?q=name:%22${encodeURIComponent(query)}%22` +
     `&pageSize=60&orderBy=-set.releaseDate` +
-    `&select=id,name,number,set,images,rarity`;
+    `&select=id,name,number,set,images,rarity,tcgplayer,cardmarket`;
 
   try {
-    const response = await fetch(url, {
-      signal: AbortSignal.timeout(10000),
-    });
+    const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
 
     if (!response.ok) {
-      console.error("TCG API error:", response.status, await response.text());
+      console.error("TCG API error:", response.status);
       return res.json({ cards: [], error: `TCG API: ${response.status}` });
     }
 

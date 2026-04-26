@@ -41,52 +41,71 @@ export default function CardItem({ card, onFetchPSA }: CardItemProps) {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
             </svg>
-            Recherche en cours...
+            Analyse en cours...
           </div>
         )}
 
         {psaData && (
-          <div className="mt-auto space-y-2 pt-2 border-t border-[#0f3460]">
-            {psaData.error && !psaData.price && !psaData.pop ? (
-              <p className="text-xs text-red-400">{psaData.error}</p>
-            ) : psaData.error ? (
-              <p className="text-xs text-orange-400 mb-1">{psaData.error}</p>
-            ) : null}
-            {(psaData.price !== null || psaData.pop !== null) ? (
-              <>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-400">Prix PSA 10</span>
-                  <span className="text-sm font-bold text-[#FFCB05]">
-                    {psaData.price !== null ? `$${psaData.price.toLocaleString()}` : "N/A"}
-                  </span>
+          <div className="mt-auto space-y-1.5 pt-2 border-t border-[#0f3460]">
+            {psaData.error && (
+              <p className="text-xs text-red-400 mb-1">{psaData.error}</p>
+            )}
+
+            {psaData.rawPrice !== null && (
+              <Row label="Prix raw" value={`$${psaData.rawPrice.toLocaleString()}`} dim />
+            )}
+            <Row
+              label="Prix PSA 10"
+              value={psaData.price !== null ? `$${psaData.price.toLocaleString()}` : "N/A"}
+              highlight
+            />
+            <Row
+              label="% Gem Mint"
+              value={psaData.gemMintPct !== null ? `${psaData.gemMintPct}%` : "N/A"}
+            />
+
+            {psaData.ratio !== null && (
+              <div className="flex justify-between items-center pt-1 border-t border-[#0f3460]">
+                <div>
+                  <span className="text-xs text-gray-300 font-semibold">Score</span>
+                  <span className="text-xs text-gray-500 ml-1">(raw/psa10 × gem%)</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-400">Ventes PSA 10</span>
-                  <span className="text-sm font-bold text-white">
-                    {psaData.pop !== null ? psaData.pop.toLocaleString() : "N/A"}
-                  </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-black text-white">{psaData.ratio}</span>
+                  <RatioBadge ratio={psaData.ratio} />
                 </div>
-                {psaData.ratio !== null && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-400">Ratio pop/prix</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-white">{psaData.ratio}</span>
-                      <RatioBadge ratio={psaData.ratio} />
-                    </div>
-                  </div>
-                )}
-                {psaData.lastSaleDate && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-400">Dernière vente</span>
-                    <span className="text-xs text-gray-400">{psaData.lastSaleDate}</span>
-                  </div>
-                )}
-                <div className="text-xs text-gray-600 text-right">{psaData.source}</div>
-              </>
-            ) : null}
+              </div>
+            )}
+
+            {psaData.lastSaleDate && (
+              <p className="text-xs text-gray-600 text-right">Dernière vente {psaData.lastSaleDate}</p>
+            )}
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function Row({
+  label,
+  value,
+  highlight,
+  dim,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+  dim?: boolean;
+}) {
+  return (
+    <div className="flex justify-between items-center">
+      <span className="text-xs text-gray-400">{label}</span>
+      <span
+        className={`text-sm font-bold ${highlight ? "text-[#FFCB05]" : dim ? "text-gray-400" : "text-white"}`}
+      >
+        {value}
+      </span>
     </div>
   );
 }
