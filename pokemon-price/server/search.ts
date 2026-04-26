@@ -7,7 +7,7 @@ export async function searchHandler(req: Request, res: Response) {
   const url =
     `https://api.pokemontcg.io/v2/cards` +
     `?q=name:%22${encodeURIComponent(query)}%22` +
-    `&pageSize=20&orderBy=-set.releaseDate` +
+    `&pageSize=60&orderBy=-set.releaseDate` +
     `&select=id,name,number,set,images,rarity`;
 
   try {

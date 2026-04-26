@@ -49,7 +49,10 @@ export default function CardItem({ card, onFetchPSA }: CardItemProps) {
           <div className="mt-auto space-y-2 pt-2 border-t border-[#0f3460]">
             {psaData.error && !psaData.price && !psaData.pop ? (
               <p className="text-xs text-red-400">{psaData.error}</p>
-            ) : (
+            ) : psaData.error ? (
+              <p className="text-xs text-orange-400 mb-1">{psaData.error}</p>
+            ) : null}
+            {(psaData.price !== null || psaData.pop !== null) ? (
               <>
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-gray-400">Prix PSA 10</span>
@@ -80,7 +83,7 @@ export default function CardItem({ card, onFetchPSA }: CardItemProps) {
                 )}
                 <div className="text-xs text-gray-600 text-right">{psaData.source}</div>
               </>
-            )}
+            ) : null}
           </div>
         )}
       </div>
