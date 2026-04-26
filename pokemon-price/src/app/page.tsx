@@ -104,7 +104,7 @@ export default function Home() {
           Pokemon PSA Price Tracker
         </h1>
         <p className="text-gray-400 text-sm">
-          Recherchez une carte · obtenez le prix PSA 10 + la pop · trouvez le meilleur ratio
+          Recherchez une carte · prix PSA 10 + pop via Collectr · meilleur ratio pop/prix
         </p>
       </div>
 

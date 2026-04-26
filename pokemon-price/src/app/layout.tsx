@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Pokemon PSA Price Tracker",
-  description: "Recherchez les cartes Pokémon et comparez les prix PSA 10 avec le ratio pop/prix",
+  description: "Recherchez les cartes Pokémon, obtenez le prix PSA 10 et la pop via Collectr, et trouvez le meilleur ratio pop/prix",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

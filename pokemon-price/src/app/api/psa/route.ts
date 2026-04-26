@@ -82,7 +82,7 @@ async function fetchPSAPop(cardName: string, setName: string, cardNumber: string
   }
 }
 
-async function fetchFromCollecte(cardName: string, setName: string, cardNumber: string): Promise<PSAData> {
+async function fetchFromCollectr(cardName: string, setName: string, cardNumber: string): Promise<PSAData> {
   // Parallel fetch price and pop
   const [priceData, pop] = await Promise.all([
     fetchMavinPrice(cardName, setName),
@@ -101,7 +101,7 @@ async function fetchFromCollecte(cardName: string, setName: string, cardNumber: 
     price,
     pop,
     ratio,
-    source: "Mavin.io + PSA",
+    source: "Collectr",
     lastSaleDate: priceData.lastSaleDate,
   };
 }
@@ -116,11 +116,11 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const data = await fetchFromCollecte(name, setName, number);
+    const data = await fetchFromCollectr(name, setName, number);
     return NextResponse.json(data);
   } catch {
     return NextResponse.json(
-      { price: null, pop: null, ratio: null, source: "Error", error: "Failed to fetch PSA data" },
+      { price: null, pop: null, ratio: null, source: "Collectr", error: "Failed to fetch PSA data" },
       { status: 500 }
     );
   }
