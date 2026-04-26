@@ -1,6 +1,3 @@
-"use client";
-
-import Image from "next/image";
 import type { CardWithPSA } from "@/types";
 import RatioBadge from "./RatioBadge";
 
@@ -15,12 +12,10 @@ export default function CardItem({ card, onFetchPSA }: CardItemProps) {
   return (
     <div className="bg-[#16213e] border border-[#0f3460] rounded-2xl overflow-hidden flex flex-col hover:border-[#FFCB05] transition-all duration-200 hover:shadow-lg hover:shadow-yellow-900/20">
       <div className="relative w-full pt-[70%] bg-[#0d0d1a]">
-        <Image
+        <img
           src={card.images.small}
           alt={card.name}
-          fill
-          className="object-contain p-2"
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          className="absolute inset-0 w-full h-full object-contain p-2"
         />
       </div>
 

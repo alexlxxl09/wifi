@@ -1,5 +1,3 @@
-"use client";
-
 interface RatioBadgeProps {
   ratio: number | null;
 }
@@ -14,9 +12,5 @@ function getRatingLabel(ratio: number): { label: string; color: string } {
 export default function RatioBadge({ ratio }: RatioBadgeProps) {
   if (ratio === null) return null;
   const { label, color } = getRatingLabel(ratio);
-  return (
-    <span className={`text-xs font-bold px-2 py-1 rounded-full ${color}`}>
-      {label}
-    </span>
-  );
+  return <span className={`text-xs font-bold px-2 py-1 rounded-full ${color}`}>{label}</span>;
 }

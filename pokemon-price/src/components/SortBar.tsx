@@ -1,5 +1,3 @@
-"use client";
-
 export type SortMode = "default" | "ratio_asc" | "price_asc" | "pop_asc";
 
 interface SortBarProps {
