@@ -2,9 +2,8 @@
   "name": "pokemon-price",
   "version": "1.0.0",
   "scripts": {
-    "dev": "tsx watch server/index.ts",
     "build": "vite build",
-    "start": "NODE_ENV=production tsx server/index.ts"
+    "start": "tsx server/index.ts"
   },
   "dependencies": {
     "cheerio": "^1.0.0",
