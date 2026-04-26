@@ -77,6 +77,12 @@ export default function CardItem({ card, onFetchPSA }: CardItemProps) {
                     </div>
                   </div>
                 )}
+                {psaData.lastSaleDate && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-400">Dernière vente</span>
+                    <span className="text-xs text-gray-400">{psaData.lastSaleDate}</span>
+                  </div>
+                )}
                 <div className="text-xs text-gray-600 text-right">{psaData.source}</div>
               </>
             )}
