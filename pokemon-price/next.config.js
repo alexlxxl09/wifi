@@ -6,9 +6,6 @@ const nextConfig = {
       { protocol: "https", hostname: "**.pokemontcg.io" },
     ],
   },
-  experimental: {
-    serverComponentsExternalPackages: ["playwright"],
-  },
 };
 
 module.exports = nextConfig;

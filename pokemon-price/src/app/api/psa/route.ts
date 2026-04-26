@@ -1,149 +1,123 @@
 import { NextRequest, NextResponse } from "next/server";
-import { chromium } from "playwright";
+import * as cheerio from "cheerio";
 import type { PSAData } from "@/types";
 
-async function withBrowser<T>(fn: (page: import("playwright").Page) => Promise<T>): Promise<T> {
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({
-    userAgent:
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    viewport: { width: 1280, height: 800 },
-  });
-  const page = await context.newPage();
-  try {
-    return await fn(page);
-  } finally {
-    await browser.close();
-  }
+// Headers qui imitent un vrai navigateur Chrome sur Android
+const BROWSER_HEADERS: Record<string, string> = {
+  "User-Agent":
+    "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.119 Mobile Safari/537.36",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+  "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
+  "Accept-Encoding": "gzip, deflate, br",
+  Connection: "keep-alive",
+  "Upgrade-Insecure-Requests": "1",
+  "Sec-Fetch-Dest": "document",
+  "Sec-Fetch-Mode": "navigate",
+  "Sec-Fetch-Site": "none",
+  "Sec-Fetch-User": "?1",
+  "Cache-Control": "max-age=0",
+};
+
+async function fetchHtml(url: string): Promise<string> {
+  const res = await fetch(url, { headers: BROWSER_HEADERS });
+  if (!res.ok) throw new Error(`HTTP ${res.status} on ${url}`);
+  return res.text();
 }
 
+// ─── 130point.com : dernières ventes PSA 10 eBay ─────────────────────────────
 async function fetch130PointPrice(
   cardName: string,
   setName: string
 ): Promise<{ price: number | null; lastSaleDate?: string }> {
-  return withBrowser(async (page) => {
+  try {
     const query = encodeURIComponent(`${cardName} ${setName}`);
-    await page.goto(`https://www.130point.com/sales/?search=${query}&grade=10`, {
-      waitUntil: "domcontentloaded",
-      timeout: 20000,
+    const html = await fetchHtml(
+      `https://www.130point.com/sales/?search=${query}&grade=10`
+    );
+    const $ = cheerio.load(html);
+
+    const prices: { price: number; date?: string }[] = [];
+
+    // 130point affiche les ventes dans un tableau : date | titre | prix
+    $("table tbody tr").each((_, row) => {
+      const cells = $(row).find("td");
+      if (cells.length < 2) return;
+
+      // Le prix est généralement dans la dernière colonne
+      const lastCell = $(cells[cells.length - 1]).text().trim();
+      const priceMatch = lastCell.match(/\$?([\d,]+\.?\d{0,2})/);
+      if (!priceMatch) return;
+
+      const val = parseFloat(priceMatch[1].replace(",", ""));
+      if (val < 1 || val > 500000) return;
+
+      const date = $(cells[0]).text().trim();
+      prices.push({ price: val, date });
     });
 
-    // Wait for results to load
-    await page.waitForTimeout(2000);
-
-    // Extract sold prices from the results table
-    const prices = await page.evaluate(() => {
-      const results: number[] = [];
-      // 130point shows prices in table rows
-      document.querySelectorAll("table tr, .sale-row, [class*='sale'], [class*='price']").forEach((el) => {
-        const text = el.textContent ?? "";
-        const match = text.match(/\$\s*([\d,]+\.?\d{0,2})/);
-        if (match) {
-          const val = parseFloat(match[1].replace(",", ""));
-          if (val > 1 && val < 500000) results.push(val);
-        }
-      });
-      return results;
-    });
+    // Fallback : chercher n'importe quel montant dans la page
+    if (prices.length === 0) {
+      const bodyText = $("body").text();
+      const matches = [...bodyText.matchAll(/\$\s*([\d,]+\.?\d{0,2})/g)];
+      for (const m of matches) {
+        const val = parseFloat(m[1].replace(",", ""));
+        if (val > 1 && val < 500000) prices.push({ price: val });
+      }
+    }
 
     if (prices.length === 0) return { price: null };
 
-    // Get the most recent price (first result = most recent on 130point)
-    const lastSalePrice = prices[0];
-
-    // Try to get the sale date
-    const lastSaleDate = await page.evaluate(() => {
-      const dateEl = document.querySelector("table tr td:first-child, .sale-date, [class*='date']");
-      return dateEl?.textContent?.trim() ?? undefined;
-    });
-
-    return { price: lastSalePrice, lastSaleDate };
-  });
+    // Première entrée = vente la plus récente
+    return { price: prices[0].price, lastSaleDate: prices[0].date };
+  } catch {
+    return { price: null };
+  }
 }
 
-async function fetchPSAPop(cardName: string, setName: string, cardNumber: string): Promise<number | null> {
-  return withBrowser(async (page) => {
-    // Search PSA pop report
-    const query = encodeURIComponent(`${cardName} ${setName}`);
-    await page.goto(`https://www.psacard.com/pop/search?q=${query}`, {
-      waitUntil: "domcontentloaded",
-      timeout: 20000,
-    });
-    await page.waitForTimeout(3000);
-
-    // Try to find and click the correct card entry
-    const cardLink = await page.evaluate(
-      ({ name, number }: { name: string; number: string }) => {
-        const links = Array.from(document.querySelectorAll("a, tr"));
-        for (const el of links) {
-          const text = el.textContent?.toLowerCase() ?? "";
-          if (text.includes(name.toLowerCase()) || text.includes(`#${number}`)) {
-            return (el as HTMLAnchorElement).href ?? null;
-          }
-        }
-        return null;
-      },
-      { name: cardName, number: cardNumber }
-    );
-
-    if (cardLink) {
-      await page.goto(cardLink, { waitUntil: "domcontentloaded", timeout: 20000 });
-      await page.waitForTimeout(2000);
-    }
-
-    // Extract PSA 10 population from the pop report table
-    const pop10 = await page.evaluate(() => {
-      // Look for a row or cell that indicates "PSA 10" or "GEM MT 10"
-      const rows = Array.from(document.querySelectorAll("tr"));
-      for (const row of rows) {
-        const text = row.textContent?.toLowerCase() ?? "";
-        if (text.includes("gem") || text.includes("10")) {
-          const cells = Array.from(row.querySelectorAll("td"));
-          // Pop count is usually the last numeric cell
-          for (let i = cells.length - 1; i >= 0; i--) {
-            const val = parseInt((cells[i].textContent ?? "").replace(/,/g, ""), 10);
-            if (!isNaN(val) && val >= 0) return val;
-          }
-        }
-      }
-
-      // Fallback: look for any element labeled "10" with a count
-      const allText = document.body.innerText;
-      const match = allText.match(/GEM[\s\S]{0,50}?(\d{1,6})/i);
-      if (match) return parseInt(match[1], 10);
-      return null;
-    });
-
-    return pop10;
-  });
-}
-
-async function fetchFromCollectr(
+// ─── PSA : pop report PSA 10 ─────────────────────────────────────────────────
+async function fetchPSAPop(
   cardName: string,
   setName: string,
   cardNumber: string
-): Promise<PSAData> {
-  const [priceData, pop] = await Promise.all([
-    fetch130PointPrice(cardName, setName),
-    fetchPSAPop(cardName, setName, cardNumber),
-  ]);
+): Promise<number | null> {
+  try {
+    // Recherche dans le pop report PSA
+    const query = encodeURIComponent(`${cardName} ${setName} ${cardNumber}`);
+    const html = await fetchHtml(
+      `https://www.psacard.com/pop/trading-card-games/year/pokemon/search?q=${query}`
+    );
+    const $ = cheerio.load(html);
 
-  const price = priceData.price;
+    // Chercher la ligne correspondant à la carte dans le tableau PSA
+    // Le tableau PSA a des colonnes : Grade | Pop | Pop Higher
+    // La colonne PSA 10 "GEM MT 10" est la dernière grade avant "TOTAL"
+    let pop10: number | null = null;
 
-  let ratio: number | null = null;
-  if (pop !== null && price !== null && price > 0) {
-    ratio = Math.round((pop / price) * 100) / 100;
+    $("table tr").each((_, row) => {
+      const rowText = $(row).text();
+      // Trouver la ligne GEM MT 10
+      if (/GEM\s*MT\s*10|PSA\s*10/i.test(rowText)) {
+        const cells = $(row).find("td");
+        // Le chiffre de pop est dans la 2e colonne (après le label du grade)
+        cells.each((i, cell) => {
+          if (i === 0) return; // skip label
+          const val = parseInt($(cell).text().replace(/,/g, "").trim(), 10);
+          if (!isNaN(val) && val >= 0) {
+            pop10 = val;
+            return false; // break
+          }
+        });
+        return false; // break outer loop
+      }
+    });
+
+    return pop10;
+  } catch {
+    return null;
   }
-
-  return {
-    price,
-    pop,
-    ratio,
-    source: "130point + PSA",
-    lastSaleDate: priceData.lastSaleDate,
-  };
 }
 
+// ─── Handler principal ────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   const name = req.nextUrl.searchParams.get("name") ?? "";
   const setName = req.nextUrl.searchParams.get("set") ?? "";
@@ -153,19 +127,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Missing card name" }, { status: 400 });
   }
 
-  try {
-    const data = await fetchFromCollectr(name, setName, number);
-    return NextResponse.json(data);
-  } catch (e) {
-    return NextResponse.json(
-      {
-        price: null,
-        pop: null,
-        ratio: null,
-        source: "130point + PSA",
-        error: e instanceof Error ? e.message : "Erreur lors de la récupération des données",
-      },
-      { status: 500 }
-    );
+  const [priceData, pop] = await Promise.all([
+    fetch130PointPrice(name, setName),
+    fetchPSAPop(name, setName, number),
+  ]);
+
+  const price = priceData.price;
+  let ratio: number | null = null;
+  if (pop !== null && price !== null && price > 0) {
+    ratio = Math.round((pop / price) * 100) / 100;
   }
+
+  const data: PSAData = {
+    price,
+    pop,
+    ratio,
+    source: "130point + PSA",
+    lastSaleDate: priceData.lastSaleDate,
+  };
+
+  return NextResponse.json(data);
 }
