@@ -69,16 +69,16 @@ export default function App() {
     for (const card of unanalyzed) await fetchPSAForCard(card);
     setAnalyzingAll(false);
     setAnalyzedAll(true);
-    setSortMode("ratio_asc");
+    setSortMode("ratio_desc");
   }
 
   const sortedCards = useMemo(() => {
     if (sortMode === "default") return cards;
     return [...cards].sort((a, b) => {
       const ap = a.psaData, bp = b.psaData;
-      if (sortMode === "ratio_asc") return (ap?.ratio ?? Infinity) - (bp?.ratio ?? Infinity);
-      if (sortMode === "price_asc") return (ap?.price ?? Infinity) - (bp?.price ?? Infinity);
-      if (sortMode === "pop_asc") return (ap?.pop ?? Infinity) - (bp?.pop ?? Infinity);
+      if (sortMode === "ratio_desc") return (bp?.ratio ?? -Infinity) - (ap?.ratio ?? -Infinity);
+      if (sortMode === "price_asc")  return (ap?.price ?? Infinity)  - (bp?.price ?? Infinity);
+      if (sortMode === "gem_desc")   return (bp?.gemMintPct ?? -Infinity) - (ap?.gemMintPct ?? -Infinity);
       return 0;
     });
   }, [cards, sortMode]);
@@ -125,11 +125,11 @@ export default function App() {
         <div className="max-w-6xl mx-auto mb-4 flex gap-4 flex-wrap text-xs text-gray-500">
           <span>Ratio pop/prix :</span>
           <span className="text-emerald-400">GEM &lt; 0.5</span>
-          <span className="text-emerald-400">TOP &lt; 5</span>
-          <span className="text-blue-400">BON &lt; 15</span>
-          <span className="text-yellow-400">MOY &lt; 40</span>
-          <span className="text-gray-400">FAIBLE ≥ 40</span>
-          <span className="text-gray-600">· Score = raw/PSA10 × gem% — plus bas = meilleure opportunité</span>
+          <span className="text-emerald-400">TOP ≥ 40</span>
+          <span className="text-blue-400">BON ≥ 15</span>
+          <span className="text-yellow-400">MOY ≥ 5</span>
+          <span className="text-gray-400">FAIBLE &lt; 5</span>
+          <span className="text-gray-600">· Score = raw/PSA10 × gem% — plus haut = meilleure opportunité</span>
         </div>
       )}
 

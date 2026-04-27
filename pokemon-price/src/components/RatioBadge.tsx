@@ -2,12 +2,12 @@ interface RatioBadgeProps {
   ratio: number | null;
 }
 
-// Score = (raw/psa10) × gem% — PLUS BAS = MEILLEURE OPPORTUNITÉ
+// Score = (raw/psa10) × gem% — PLUS HAUT = MEILLEURE OPPORTUNITÉ
 function getRating(ratio: number): { label: string; color: string } {
-  if (ratio < 5)  return { label: "TOP", color: "bg-emerald-500 text-white" };
-  if (ratio < 15) return { label: "BON", color: "bg-blue-500 text-white" };
-  if (ratio < 40) return { label: "MOY", color: "bg-yellow-500 text-black" };
-  return          { label: "FAIBLE", color: "bg-gray-600 text-white" };
+  if (ratio >= 40) return { label: "TOP",   color: "bg-emerald-500 text-white" };
+  if (ratio >= 15) return { label: "BON",   color: "bg-blue-500 text-white" };
+  if (ratio >= 5)  return { label: "MOY",   color: "bg-yellow-500 text-black" };
+  return           { label: "FAIBLE", color: "bg-gray-600 text-white" };
 }
 
 export default function RatioBadge({ ratio }: RatioBadgeProps) {

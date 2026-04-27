@@ -1,4 +1,4 @@
-export type SortMode = "default" | "ratio_asc" | "price_asc" | "pop_asc";
+export type SortMode = "default" | "ratio_desc" | "price_asc" | "gem_desc";
 
 interface SortBarProps {
   mode: SortMode;
@@ -7,10 +7,10 @@ interface SortBarProps {
 }
 
 const OPTIONS: { value: SortMode; label: string }[] = [
-  { value: "default", label: "Par défaut" },
-  { value: "ratio_asc", label: "Meilleur ratio pop/prix" },
-  { value: "price_asc", label: "Prix croissant" },
-  { value: "pop_asc", label: "Pop croissante" },
+  { value: "default",    label: "Par défaut" },
+  { value: "ratio_desc", label: "Meilleur score" },
+  { value: "gem_desc",   label: "Gem mint % ↑" },
+  { value: "price_asc",  label: "Prix PSA 10 ↓" },
 ];
 
 export default function SortBar({ mode, onChange, analyzedCount }: SortBarProps) {
